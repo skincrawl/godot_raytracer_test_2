@@ -4,7 +4,8 @@ class_name Raytracer
 
 
 @onready var screen_texture:TextureRect = $screen_texture
-@onready var camera:Camera3D = $Camera3D
+@onready var camera:Camera3D = $camera
+@onready var cube:MeshInstance3D = $cube
 
 
 var WIDTH:int = 512
@@ -129,6 +130,7 @@ func _setup_scene() -> void:
 	cube_material.color = Color(0.8, 0.2, 0.4, 1.0)
 	
 	# Floor quad made of two triangles
+	'''
 	var floor_tri_0 = Triangle.new()
 	
 	floor_tri_0.v0 = Vector3( 4.0,  2.0, 10.0)
@@ -143,11 +145,28 @@ func _setup_scene() -> void:
 	floor_tri_1.material = floor_material
 	
 	tris.append_array([floor_tri_0, floor_tri_1])
-	
+	'''
 	
 	# Cube made of twelve triangles
 	
 	# Vertices
+	
+	var cube_global_transform:Transform3D = cube.global_transform
+	var triangle_array:Array = cube.mesh.get_faces()
+	
+	var tri_i:int = 0
+	while tri_i <= triangle_array.size() - 3:
+		var v0:Vector3 = triangle_array[tri_i]
+		var v1:Vector3 = triangle_array[tri_i + 1]
+		var v2:Vector3 = triangle_array[tri_i + 2]
+		var triangle:Triangle = Triangle.new()
+		triangle.v0 = cube_global_transform * v0
+		triangle.v1 = cube_global_transform * v1
+		triangle.v2 = cube_global_transform * v2
+		triangle.material = TriangleMaterial.new()
+		triangle.material.color = cube.get_active_material(0).albedo_color
+		tris.append(triangle)
+		tri_i += 3
 	
 	# Bottom
 	var lbf:Vector3 = Vector3(-0.5, 2.0, 3.5);       # Left,  bottom, front
@@ -161,7 +180,7 @@ func _setup_scene() -> void:
 	var ltf:Vector3 = Vector3(-0.5, 1.0, 3.5);       # Left,  top, front
 	var rtf:Vector3 = Vector3( 0.5, 1.0, 3.5);       # Right, top, front
 	
-	
+	'''
 	# Bottom
 	var bottom_1:Triangle = Triangle.new()
 	bottom_1.v0 = lbf
@@ -264,6 +283,7 @@ func _setup_scene() -> void:
 	top_2.material = cube_material
 	
 	tris.append(top_2)
+	'''
 	
 	for triangle in tris:
 		triangle_float_data.append_array([

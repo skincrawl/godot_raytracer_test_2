@@ -2,9 +2,19 @@
 
 [ext_resource type="Script" uid="uid://ulosdbcstvg7" path="res://Scripts/raytracer.gd" id="1_akjsa"]
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_akjsa"]
+albedo_color = Color(0.8, 0.2, 0.4, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_akjsa"]
+material = SubResource("StandardMaterial3D_akjsa")
+
 [node name="raytracer" type="Node3D" unique_id=409144516]
 script = ExtResource("1_akjsa")
 
 [node name="screen_texture" type="TextureRect" parent="." unique_id=1775906006]
 
-[node name="Camera3D" type="Camera3D" parent="." unique_id=785584202]
+[node name="camera" type="Camera3D" parent="." unique_id=785584202]
+
+[node name="cube" type="MeshInstance3D" parent="." unique_id=394170881]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9597863, -3.7452636)
+mesh = SubResource("BoxMesh_akjsa")
