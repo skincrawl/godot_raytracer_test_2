@@ -14,6 +14,8 @@ In this version we read in the mesh data from mesh instance nodes and feed the t
 @onready var floor_mesh:MeshInstance3D = $floor
 
 
+var speed:float = 1.0
+
 var WIDTH:int = 512
 var HEIGHT:int = 512
 
@@ -41,7 +43,8 @@ func _ready() -> void:
 	WIDTH = viewport_size.x
 	HEIGHT = viewport_size.y
 	
-	var skybox_image:Image = Image.load_from_file("res://Assets/egypt_skybox.png")
+	var skybox_image:Image = Image.new()
+	skybox_image.load("res://Assets/egypt_skybox.png")
 	# skybox_image.generate_mipmaps()
 	skybox_image.convert(Image.FORMAT_RGBA8)
 	
@@ -143,12 +146,15 @@ func _input(_event:InputEvent) -> void:
 	# print("screen velocity: ", screen_velo)
 	
 	redraw_needed = true
-	camera.rotate_y(-mouse_event.screen_relative.x * 0.001)
+	var camera_basis:Basis = camera.basis
+	camera.global_rotate(Vector3.UP, -mouse_event.screen_relative.x * 0.001)
+	camera.global_rotate( camera_basis.x, -mouse_event.screen_relative.y * 0.001)
 	
 	_setup_camera_buffer()
 
 
 func _process(_delta:float) -> void:
+	
 	
 	if not mouse_motion.is_zero_approx():
 		redraw_needed = true
@@ -308,6 +314,6 @@ func _get_texture_from_gpu() -> void:
 		bytes
 	)
 	
-	var texture:ImageTexture = ImageTexture.create_from_image(image)
+	var new_texture:ImageTexture = ImageTexture.create_from_image(image)
 	
-	screen_texture.texture = texture
+	screen_texture.texture = new_texture
