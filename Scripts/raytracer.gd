@@ -3,9 +3,15 @@ extends Node3D
 class_name Raytracer
 
 
+'''
+In this version we read in the mesh data from mesh instance nodes and feed the triangles to the GPU / shader.
+'''
+
 @onready var screen_texture:TextureRect = $screen_texture
 @onready var camera:Camera3D = $camera
+
 @onready var cube:MeshInstance3D = $cube
+@onready var floor_mesh:MeshInstance3D = $floor
 
 
 var WIDTH:int = 512
@@ -23,8 +29,13 @@ var uniform_set:RID
 var tris:Array = []
 var triangle_float_data:PackedFloat32Array = PackedFloat32Array()
 
+var mouse_motion:Vector2 = Vector2.ZERO
+var redraw_needed:bool = false
+
 
 func _ready() -> void:
+	
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	
 	var viewport_size:Vector2i = get_viewport().get_visible_rect().size
 	WIDTH = viewport_size.x
@@ -38,7 +49,7 @@ func _ready() -> void:
 	rd = RenderingServer.create_local_rendering_device()
 	
 	# 2. Load shader SPIR-V
-	var shader_file:RDShaderFile = load("res://Resources/Shaders/raytracer_2.glsl")
+	var shader_file:RDShaderFile = load("res://Resources/Shaders/raytracer_3.glsl")
 	var spirv:RDShaderSPIRV = shader_file.get_spirv()
 	shader = rd.shader_create_from_spirv(spirv)
 	
@@ -121,6 +132,37 @@ func _ready() -> void:
 	_get_texture_from_gpu()
 
 
+func _input(_event:InputEvent) -> void:
+	
+	if not _event is InputEventMouseMotion:
+		return
+	
+	var mouse_event:InputEventMouseMotion = _event
+	mouse_motion = mouse_event.screen_relative
+	
+	# print("screen velocity: ", screen_velo)
+	
+	redraw_needed = true
+	camera.rotate_y(-mouse_event.screen_relative.x * 0.001)
+	
+	_setup_camera_buffer()
+
+
+func _process(_delta:float) -> void:
+	
+	if not mouse_motion.is_zero_approx():
+		redraw_needed = true
+	
+	if not redraw_needed:
+		return
+	
+	_run_compute()
+	_get_texture_from_gpu()
+	
+	redraw_needed = false
+	mouse_motion = Vector2.ZERO
+
+
 func _setup_scene() -> void:
 	
 	# Materials
@@ -130,31 +172,35 @@ func _setup_scene() -> void:
 	cube_material.color = Color(0.8, 0.2, 0.4, 1.0)
 	
 	# Floor quad made of two triangles
-	'''
-	var floor_tri_0 = Triangle.new()
 	
-	floor_tri_0.v0 = Vector3( 4.0,  2.0, 10.0)
-	floor_tri_0.v1 = Vector3(-4.0,  2.0, 2.0)
-	floor_tri_0.v2 = Vector3(-4.0,  2.0, 10.0)
-	floor_tri_0.material = floor_material
+	var floor_global_transform:Transform3D = floor_mesh.global_transform
+	var triangle_array:Array = floor_mesh.mesh.get_faces()
 	
-	var floor_tri_1:Triangle = Triangle.new()
-	floor_tri_1.v0 = Vector3( 4.0,  2.0, 10.0)
-	floor_tri_1.v1 = Vector3( 4.0,  2.0, 2.0)
-	floor_tri_1.v2 = Vector3(-4.0,  2.0, 2.0)
-	floor_tri_1.material = floor_material
-	
-	tris.append_array([floor_tri_0, floor_tri_1])
-	'''
+	var tri_i:int = 0
+	while tri_i <= triangle_array.size() - 3:
+		var v0:Vector3 = triangle_array[tri_i]
+		var v1:Vector3 = triangle_array[tri_i + 1]
+		var v2:Vector3 = triangle_array[tri_i + 2]
+		var triangle:Triangle = Triangle.new()
+		triangle.v0 = floor_global_transform * v0
+		triangle.v1 = floor_global_transform * v1
+		triangle.v2 = floor_global_transform * v2
+		# triangle.v0 = v0
+		# triangle.v1 = v1
+		# triangle.v2 = v2
+		triangle.material = TriangleMaterial.new()
+		triangle.material.color = floor_mesh.get_active_material(0).albedo_color
+		tris.append(triangle)
+		tri_i += 3
 	
 	# Cube made of twelve triangles
 	
 	# Vertices
 	
 	var cube_global_transform:Transform3D = cube.global_transform
-	var triangle_array:Array = cube.mesh.get_faces()
+	triangle_array = cube.mesh.get_faces()
 	
-	var tri_i:int = 0
+	tri_i = 0
 	while tri_i <= triangle_array.size() - 3:
 		var v0:Vector3 = triangle_array[tri_i]
 		var v1:Vector3 = triangle_array[tri_i + 1]
@@ -163,127 +209,13 @@ func _setup_scene() -> void:
 		triangle.v0 = cube_global_transform * v0
 		triangle.v1 = cube_global_transform * v1
 		triangle.v2 = cube_global_transform * v2
+		# triangle.v0 = v0
+		# triangle.v1 = v1
+		# triangle.v2 = v2
 		triangle.material = TriangleMaterial.new()
 		triangle.material.color = cube.get_active_material(0).albedo_color
 		tris.append(triangle)
 		tri_i += 3
-	
-	# Bottom
-	var lbf:Vector3 = Vector3(-0.5, 2.0, 3.5);       # Left,  bottom, front
-	var lbb:Vector3 = Vector3(-0.5, 2.0, 4.5);       # Left,  bottom, back
-	var rbb:Vector3 = Vector3( 0.5, 2.0, 4.5);       # Right, bottom, back
-	var rbf:Vector3 = Vector3( 0.5, 2.0, 3.5);       # Right, bottom, front
-	
-	# Top
-	var rtb:Vector3 = Vector3( 0.5, 1.0, 4.5);       # Right, top, back
-	var ltb:Vector3 = Vector3(-0.5, 1.0, 4.5);       # Left,  top, back
-	var ltf:Vector3 = Vector3(-0.5, 1.0, 3.5);       # Left,  top, front
-	var rtf:Vector3 = Vector3( 0.5, 1.0, 3.5);       # Right, top, front
-	
-	'''
-	# Bottom
-	var bottom_1:Triangle = Triangle.new()
-	bottom_1.v0 = lbf
-	bottom_1.v1 = lbb
-	bottom_1.v2 = rbb
-	bottom_1.material = cube_material
-	
-	tris.append(bottom_1)
-	
-	var bottom_2:Triangle = Triangle.new()
-	bottom_2.v0 = lbf
-	bottom_2.v1 = rbb
-	bottom_2.v2 = rbf
-	bottom_2.material = cube_material
-	
-	tris.append(bottom_2)
-	
-	
-	# Back
-	var back_1:Triangle = Triangle.new()
-	back_1.v0 = rbb
-	back_1.v1 = lbb
-	back_1.v2 = ltb
-	back_1.material = cube_material
-	
-	tris.append(bottom_1)
-	
-	var back_2:Triangle = Triangle.new()
-	back_2.v0 = rbb
-	back_2.v1 = ltb
-	back_2.v2 = rtb
-	back_2.material = cube_material
-	
-	tris.append(bottom_2)
-
-	# Left
-	var left_1:Triangle = Triangle.new()
-	left_1.v0 = ltf
-	left_1.v1 = ltb
-	left_1.v2 = lbb
-	left_1.material = cube_material
-	
-	tris.append(left_1)
-	
-	var left_2:Triangle = Triangle.new()
-	left_2.v0 = lbf
-	left_2.v1 = lbb
-	left_2.v2 = lbf
-	left_2.material = cube_material
-	
-	tris.append(left_2)
-
-	# Right
-	var right_1:Triangle = Triangle.new()
-	right_1.v0 = rtb
-	right_1.v1 = rtf
-	right_1.v2 = rbf
-	right_1.material = cube_material
-	
-	tris.append(right_1)
-	
-	var right_2:Triangle = Triangle.new()
-	right_2.v0 = rtb
-	right_2.v1 = rbf
-	right_2.v2 = rbb
-	right_2.material = cube_material
-	
-	tris.append(right_2)
-
-	# Front
-	var front_1:Triangle = Triangle.new()
-	front_1.v0 = rtf
-	front_1.v1 = ltf
-	front_1.v2 = lbf
-	front_1.material = cube_material
-	
-	tris.append(front_1)
-	
-	var front_2:Triangle = Triangle.new()
-	front_2.v0 = rtf
-	front_2.v1 = lbf
-	front_2.v2 = rbf
-	front_2.material = cube_material
-	
-	tris.append(front_2)
-
-	# Top
-	var top_1:Triangle = Triangle.new()
-	top_1.v0 = rtb
-	top_1.v1 = ltb
-	top_1.v2 = ltf
-	top_1.material = cube_material
-	
-	tris.append(top_1)
-	
-	var top_2:Triangle = Triangle.new()
-	top_2.v0 = rtb
-	top_2.v1 = ltf
-	top_2.v2 = rtf
-	top_2.material = cube_material
-	
-	tris.append(top_2)
-	'''
 	
 	for triangle in tris:
 		triangle_float_data.append_array([
@@ -302,6 +234,8 @@ func _setup_scene() -> void:
 
 
 func _run_compute() -> void:
+	
+	# print("drawing")
 	
 	var compute_list:int = rd.compute_list_begin()
 	
@@ -326,7 +260,7 @@ func _setup_camera_buffer() -> void:
 	t.basis = t.basis.orthonormalized()
 	var right:Vector3 = t.basis.x
 	var up:Vector3 = t.basis.y
-	var forward:Vector3 = t.basis.z
+	var forward:Vector3 = -t.basis.z
 	
 	var fov_rad:float = deg_to_rad(camera.fov)
 	

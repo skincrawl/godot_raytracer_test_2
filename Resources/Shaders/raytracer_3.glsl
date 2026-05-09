@@ -53,7 +53,7 @@ const float PI = 3.14159265359;
 // Directional light
 // Points in the direction the photons are travelling (from the light toward the scene)
 // So, down and slightly to the right and away from the camera
-vec3 light_dir = normalize(vec3(0.2, 1.0, -0.8));
+vec3 light_dir = normalize(vec3(0.8, 1.0, 0.1));
 
 
 
@@ -163,9 +163,9 @@ void main(){
     // Setting up the initial ray
     vec3 ray_origin = cam_pos_fov.xyz;
     vec3 ray_dir =
-        cam_forward +
-        cam_right * uv.x * aspect +
-        cam_up * uv.y;
+    cam_forward +
+    cam_right * uv.x * aspect +
+    cam_up * uv.y;
     ray_dir = normalize(ray_dir);
     vec3 light_color = vec3(1.0);
 
@@ -190,12 +190,23 @@ void main(){
 
         vec3 normal = hit.normal;
 
-        // direct lighting
-        float diffuse = max(dot(normal, -light_dir), 0.0);
-        final_color += throughput * hit.albedo * diffuse * light_color;
-        // final_color = hit.albedo;
-        // final_color = normal * 0.5 + 0.5;
-        // final_color = abs(normal);
+        vec3 shadow_origin = hit.pos + normal * 0.001;
+        Hit shadow_hit;
+
+        vec3 L = normalize(-light_dir); // direction FROM surface TO light
+        bool in_shadow = intersect_scene(shadow_origin, L, shadow_hit);
+
+        if (!in_shadow) {
+
+            // direct lighting
+            float diffuse = max(dot(normal, L), 0.0);
+            final_color += throughput * hit.albedo * diffuse * light_color;
+            // final_color = hit.albedo;
+            // final_color = normal * 0.5 + 0.5;
+            // final_color = abs(normal);
+        } // else {
+            // final_color = vec3(0.0, 1.0, 0.0);
+        // }
 
         // prepare next bounce
         ray_origin = hit.pos + normal * 0.001;
