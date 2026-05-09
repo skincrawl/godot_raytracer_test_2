@@ -1,6 +1,6 @@
-extends Node3D
+extends CharacterBody3D
 
-class_name Raytracer
+class_name Player
 
 
 '''
@@ -10,9 +10,11 @@ In this version we read in the mesh data from mesh instance nodes and feed the t
 @onready var screen_texture:TextureRect = $screen_texture
 @onready var camera:Camera3D = $camera
 
-@onready var cube:MeshInstance3D = $cube
-@onready var floor_mesh:MeshInstance3D = $floor
+@onready var cube_static_body:StaticBody3D
+@onready var floor_static_body:StaticBody3D
 
+
+var mouse_sensitivity:float = 0.001
 
 var speed:float = 1.0
 
@@ -31,13 +33,19 @@ var uniform_set:RID
 var tris:Array = []
 var triangle_float_data:PackedFloat32Array = PackedFloat32Array()
 
-var mouse_motion:Vector2 = Vector2.ZERO
+var previous_pos:Vector3 = Vector3.ZERO
+var mouse_motion:Vector2 = Vector2.ZERO # Used to know if we need to redraw the screen
 var redraw_needed:bool = false
 
 
 func _ready() -> void:
 	
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	
+	previous_pos = global_position
+	
+	floor_static_body = World.get_instance().floor_static_body
+	cube_static_body = World.get_instance().cube_static_body
 	
 	var viewport_size:Vector2i = get_viewport().get_visible_rect().size
 	WIDTH = viewport_size.x
@@ -145,16 +153,25 @@ func _input(_event:InputEvent) -> void:
 	
 	# print("screen velocity: ", screen_velo)
 	
-	redraw_needed = true
 	var camera_basis:Basis = camera.basis
-	camera.global_rotate(Vector3.UP, -mouse_event.screen_relative.x * 0.001)
-	camera.global_rotate( camera_basis.x, -mouse_event.screen_relative.y * 0.001)
-	
-	_setup_camera_buffer()
+	camera.global_rotate(Vector3.UP, -mouse_event.screen_relative.x * mouse_sensitivity)
+	camera.global_rotate( camera_basis.x, -mouse_event.screen_relative.y * mouse_sensitivity)
 
 
 func _process(_delta:float) -> void:
 	
+	velocity = Vector3.ZERO
+	var input_dir:Vector2 = Input.get_vector("walk_left", "walk_right", "walk_back", "walk_forward")
+	if input_dir.length() > 0.01:
+		velocity += transform * Vector3(input_dir.x, 0.0, input_dir.y).normalized() * speed
+	
+	velocity += get_gravity()
+	move_and_slide()
+	
+	if not previous_pos.is_equal_approx(global_position):
+		redraw_needed = true
+	
+	previous_pos = global_position
 	
 	if not mouse_motion.is_zero_approx():
 		redraw_needed = true
@@ -162,6 +179,7 @@ func _process(_delta:float) -> void:
 	if not redraw_needed:
 		return
 	
+	_setup_camera_buffer()
 	_run_compute()
 	_get_texture_from_gpu()
 	
@@ -179,7 +197,8 @@ func _setup_scene() -> void:
 	
 	# Floor quad made of two triangles
 	
-	var floor_global_transform:Transform3D = floor_mesh.global_transform
+	var floor_global_transform:Transform3D = floor_static_body.global_transform
+	var floor_mesh:MeshInstance3D = floor_static_body.get_node("floor_mesh")
 	var triangle_array:Array = floor_mesh.mesh.get_faces()
 	
 	var tri_i:int = 0
@@ -203,8 +222,9 @@ func _setup_scene() -> void:
 	
 	# Vertices
 	
-	var cube_global_transform:Transform3D = cube.global_transform
-	triangle_array = cube.mesh.get_faces()
+	var cube_global_transform:Transform3D = cube_static_body.global_transform
+	var cube_mesh:MeshInstance3D = cube_static_body.get_node("cube_mesh")
+	triangle_array = cube_mesh.mesh.get_faces()
 	
 	tri_i = 0
 	while tri_i <= triangle_array.size() - 3:
@@ -219,7 +239,7 @@ func _setup_scene() -> void:
 		# triangle.v1 = v1
 		# triangle.v2 = v2
 		triangle.material = TriangleMaterial.new()
-		triangle.material.color = cube.get_active_material(0).albedo_color
+		triangle.material.color = cube_mesh.get_active_material(0).albedo_color
 		tris.append(triangle)
 		tri_i += 3
 	

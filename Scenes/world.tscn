@@ -1,0 +1,44 @@
+[gd_scene format=3 uid="uid://d271qir3yue6f"]
+
+[ext_resource type="Script" uid="uid://sqwenlv65tc1" path="res://Scripts/world.gd" id="1_8j60k"]
+[ext_resource type="Material" uid="uid://chn18tyk66tj6" path="res://Resources/Materials/floor_material.tres" id="2_fo5ed"]
+[ext_resource type="Material" uid="uid://4iahf3p44jsk" path="res://Resources/Materials/cube_material.tres" id="3_5ukr8"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_akjsa"]
+material = ExtResource("2_fo5ed")
+size = Vector2(8, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bmdr2"]
+size = Vector3(7.974365, 0.49609375, 8.002686)
+
+[sub_resource type="BoxMesh" id="BoxMesh_akjsa"]
+material = ExtResource("3_5ukr8")
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_m1n40"]
+
+[node name="raytracer" type="Node3D" unique_id=1851410822]
+script = ExtResource("1_8j60k")
+
+[node name="world" type="Node3D" parent="." unique_id=1360348104]
+
+[node name="floor" type="StaticBody3D" parent="world" unique_id=616280680]
+
+[node name="floor_mesh" type="MeshInstance3D" parent="world/floor" unique_id=1189412794]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.5, -3.9169245)
+mesh = SubResource("PlaneMesh_akjsa")
+
+[node name="floor_collision" type="CollisionShape3D" parent="world/floor" unique_id=100188960]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.007446289, -1.7519485, -3.8995361)
+shape = SubResource("BoxShape3D_bmdr2")
+
+[node name="cube" type="StaticBody3D" parent="world" unique_id=1465407880]
+transform = Transform3D(0.91342473, 0, -0.40700766, 0, 1, 0, 0.40700766, 0, 0.91342473, -1.009, -1, -4.862)
+
+[node name="cube_mesh" type="MeshInstance3D" parent="world/cube" unique_id=394170881]
+mesh = SubResource("BoxMesh_akjsa")
+
+[node name="cube_collision" type="CollisionShape3D" parent="world/cube" unique_id=575155415]
+shape = SubResource("BoxShape3D_m1n40")
+
+[node name="spawn_pos" type="Node3D" parent="." unique_id=983624107]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.31940043, -0.52880716)
