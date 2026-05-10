@@ -16,7 +16,7 @@ In this version we read in the mesh data from mesh instance nodes and feed the t
 
 var mouse_sensitivity:float = 0.001
 
-var speed:float = 1.0
+var speed:float = 2.0
 
 var WIDTH:int = 512
 var HEIGHT:int = 512
@@ -145,6 +145,9 @@ func _ready() -> void:
 
 func _input(_event:InputEvent) -> void:
 	
+	if _event.is_action_pressed("jump") and is_on_floor():
+		velocity.y = 5.0
+	
 	if not _event is InputEventMouseMotion:
 		return
 	
@@ -154,18 +157,30 @@ func _input(_event:InputEvent) -> void:
 	# print("screen velocity: ", screen_velo)
 	
 	var camera_basis:Basis = camera.basis
-	camera.global_rotate(Vector3.UP, -mouse_event.screen_relative.x * mouse_sensitivity)
-	camera.global_rotate( camera_basis.x, -mouse_event.screen_relative.y * mouse_sensitivity)
+	camera.global_rotate(	 Vector3.UP, -mouse_event.screen_relative.x * mouse_sensitivity)
+	camera.global_rotate(camera_basis.x, -mouse_event.screen_relative.y * mouse_sensitivity)
 
 
 func _process(_delta:float) -> void:
 	
-	velocity = Vector3.ZERO
+	# velocity = Vector3.ZERO
+	# print("delta: ", _delta)
+	var old_y:float = velocity.y
 	var input_dir:Vector2 = Input.get_vector("walk_left", "walk_right", "walk_back", "walk_forward")
+	input_dir.y *= -1.0
 	if input_dir.length() > 0.01:
-		velocity += transform * Vector3(input_dir.x, 0.0, input_dir.y).normalized() * speed
+		velocity = camera.basis * Vector3(input_dir.x, 0.0, input_dir.y).normalized() * speed
+		velocity.y = old_y
+	else:
+		
+		velocity.x = lerp(velocity.x, 0.0, 0.2)
+		velocity.z = lerp(velocity.z, 0.0, 0.2)
 	
-	velocity += get_gravity()
+	# print("gravity: ", get_gravity())
+	if not is_on_floor():
+		velocity += get_gravity() * _delta
+	
+	# print("velocity: ", velocity)
 	move_and_slide()
 	
 	if not previous_pos.is_equal_approx(global_position):

@@ -53,7 +53,7 @@ const float PI = 3.14159265359;
 // Directional light
 // Points in the direction the photons are travelling (from the light toward the scene)
 // So, down and slightly to the right and away from the camera
-vec3 light_dir = normalize(vec3(0.8, 1.0, 0.1));
+vec3 light_dir = normalize(vec3(0.4, -1.0, -0.2));
 
 
 

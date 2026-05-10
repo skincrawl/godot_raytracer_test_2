@@ -41,4 +41,4 @@ mesh = SubResource("BoxMesh_akjsa")
 shape = SubResource("BoxShape3D_m1n40")
 
 [node name="spawn_pos" type="Node3D" parent="." unique_id=983624107]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8089378, -0.52880716)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.4656324, 1.8089378, -1.9339314)
