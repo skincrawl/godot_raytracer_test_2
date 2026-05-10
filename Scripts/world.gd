@@ -6,8 +6,9 @@ class_name World
 @onready var player_packed:PackedScene = preload("res://Scenes/player.tscn")
 
 @onready var spawn_pos:Node3D = $spawn_pos
-@onready var cube_static_body:StaticBody3D = $world/cube
-@onready var floor_static_body:StaticBody3D = $world/floor
+@onready var cube_sb:StaticBody3D = $world/cube
+@onready var floor_sb:StaticBody3D = $world/floor
+@onready var suzanne_rb:RigidBody3D = $world/suzanne
 
 
 static var _instance:World

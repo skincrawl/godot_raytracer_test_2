@@ -1,0 +1,34 @@
+[gd_scene format=3 uid="uid://cchrme4tgupkd"]
+
+[ext_resource type="PackedScene" uid="uid://b7vgtccvcij4o" path="res://Assets/Models/suzanne.glb" id="1_g2s46"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g2s46"]
+radius = 0.68066406
+height = 1.6640625
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_g2s46"]
+size = Vector3(1, 1.6625366, 0.3838501)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_fc15w"]
+size = Vector3(0.57543945, 0.5615692, 0.17384338)
+
+[node name="suzanne" type="RigidBody3D" unique_id=2082695228]
+
+[node name="suzanne" parent="." unique_id=679149085 instance=ExtResource("1_g2s46")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.0993467, 0)
+
+[node name="head_collision" type="CollisionShape3D" parent="." unique_id=194160728]
+transform = Transform3D(-4.371139e-08, -1, 0, -4.371139e-08, 1.9106855e-15, 1, -1, 4.371139e-08, -4.371139e-08, 0.015625, 0.19553185, -0.14236973)
+shape = SubResource("CapsuleShape3D_g2s46")
+
+[node name="face_collision" type="CollisionShape3D" parent="." unique_id=126380549]
+transform = Transform3D(1, 0, 0, 0, 0.9923987, -0.12306454, 0, 0.12306454, 0.9923987, 0, -0.23490727, 0.619281)
+shape = SubResource("BoxShape3D_g2s46")
+
+[node name="ear_r_collision" type="CollisionShape3D" parent="." unique_id=1720247936]
+transform = Transform3D(0.9397762, 0, -0.3417905, 0, 1, 0, 0.3417905, 0, 0.9397762, -1.0697991, 0.08969879, -0.40330002)
+shape = SubResource("BoxShape3D_fc15w")
+
+[node name="ear_l_collision" type="CollisionShape3D" parent="." unique_id=295097869]
+transform = Transform3D(0.9396926, 0, 0.34202012, 0, 1, 0, -0.34202012, 0, 0.9396926, 1.086327, 0.10845363, -0.40330002)
+shape = SubResource("BoxShape3D_fc15w")

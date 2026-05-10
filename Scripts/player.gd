@@ -10,8 +10,9 @@ In this version we read in the mesh data from mesh instance nodes and feed the t
 @onready var screen_texture:TextureRect = $screen_texture
 @onready var camera:Camera3D = $camera
 
-@onready var cube_static_body:StaticBody3D
-@onready var floor_static_body:StaticBody3D
+@onready var cube_sb:StaticBody3D
+@onready var floor_sb:StaticBody3D
+@onready var suzanne_rb:RigidBody3D
 
 
 var mouse_sensitivity:float = 0.001
@@ -44,8 +45,9 @@ func _ready() -> void:
 	
 	previous_pos = global_position
 	
-	floor_static_body = World.get_instance().floor_static_body
-	cube_static_body = World.get_instance().cube_static_body
+	floor_sb = World.get_instance().floor_sb
+	cube_sb = World.get_instance().cube_sb
+	suzanne_rb = World.get_instance().suzanne_rb
 	
 	var viewport_size:Vector2i = get_viewport().get_visible_rect().size
 	WIDTH = viewport_size.x
@@ -209,55 +211,24 @@ func _setup_scene() -> void:
 	floor_material.color = Color(0.8, 0.8, 0.8, 1.0);
 	var cube_material:TriangleMaterial  = TriangleMaterial.new()
 	cube_material.color = Color(0.8, 0.2, 0.4, 1.0)
+	var emerald_material:TriangleMaterial = TriangleMaterial.new()
+	emerald_material.color = Color("#298627FF")
 	
-	# Floor quad made of two triangles
+	# Floor mesh
 	
-	var floor_global_transform:Transform3D = floor_static_body.global_transform
-	var floor_mesh:MeshInstance3D = floor_static_body.get_node("floor_mesh")
-	var triangle_array:Array = floor_mesh.mesh.get_faces()
+	_send_floor_mesh()
 	
-	var tri_i:int = 0
-	while tri_i <= triangle_array.size() - 3:
-		var v0:Vector3 = triangle_array[tri_i]
-		var v1:Vector3 = triangle_array[tri_i + 1]
-		var v2:Vector3 = triangle_array[tri_i + 2]
-		var triangle:Triangle = Triangle.new()
-		triangle.v0 = floor_global_transform * v0
-		triangle.v1 = floor_global_transform * v1
-		triangle.v2 = floor_global_transform * v2
-		# triangle.v0 = v0
-		# triangle.v1 = v1
-		# triangle.v2 = v2
-		triangle.material = TriangleMaterial.new()
-		triangle.material.color = floor_mesh.get_active_material(0).albedo_color
-		tris.append(triangle)
-		tri_i += 3
+	# Cube mesh
 	
-	# Cube made of twelve triangles
+	if cube_sb.visible:
+		_send_cube_mesh()
 	
-	# Vertices
+	# Suzanne mesh
 	
-	var cube_global_transform:Transform3D = cube_static_body.global_transform
-	var cube_mesh:MeshInstance3D = cube_static_body.get_node("cube_mesh")
-	triangle_array = cube_mesh.mesh.get_faces()
+	if suzanne_rb.visible:
+		_send_suzanne_mesh()
 	
-	tri_i = 0
-	while tri_i <= triangle_array.size() - 3:
-		var v0:Vector3 = triangle_array[tri_i]
-		var v1:Vector3 = triangle_array[tri_i + 1]
-		var v2:Vector3 = triangle_array[tri_i + 2]
-		var triangle:Triangle = Triangle.new()
-		triangle.v0 = cube_global_transform * v0
-		triangle.v1 = cube_global_transform * v1
-		triangle.v2 = cube_global_transform * v2
-		# triangle.v0 = v0
-		# triangle.v1 = v1
-		# triangle.v2 = v2
-		triangle.material = TriangleMaterial.new()
-		triangle.material.color = cube_mesh.get_active_material(0).albedo_color
-		tris.append(triangle)
-		tri_i += 3
-	
+	# Converting triangle data to floats
 	for triangle in tris:
 		triangle_float_data.append_array([
 		# v0
@@ -272,6 +243,78 @@ func _setup_scene() -> void:
 		triangle.material.color.b,
 		0.0
 	])
+
+
+func _send_floor_mesh() -> void:
+	
+	var floor_global_transform:Transform3D = floor_sb.global_transform
+	var floor_mesh:MeshInstance3D = floor_sb.get_node("floor_mesh")
+	var temp_tris:Array = floor_mesh.mesh.get_faces()
+	
+	var tri_i:int = 0
+	while tri_i <= temp_tris.size() - 3:
+		var v0:Vector3 = temp_tris[tri_i]
+		var v1:Vector3 = temp_tris[tri_i + 1]
+		var v2:Vector3 = temp_tris[tri_i + 2]
+		var triangle:Triangle = Triangle.new()
+		triangle.v0 = floor_global_transform * v0
+		triangle.v1 = floor_global_transform * v1
+		triangle.v2 = floor_global_transform * v2
+		# triangle.v0 = v0
+		# triangle.v1 = v1
+		# triangle.v2 = v2
+		triangle.material = TriangleMaterial.new()
+		triangle.material.color = floor_mesh.get_active_material(0).albedo_color
+		tris.append(triangle)
+		tri_i += 3
+
+
+func _send_cube_mesh() -> void:
+	
+	var cube_global_transform:Transform3D = cube_sb.global_transform
+	var cube_mesh:MeshInstance3D = cube_sb.get_node("cube_mesh")
+	var temp_tris:Array = cube_mesh.mesh.get_faces()
+	
+	var tri_i:int = 0
+	while tri_i <= temp_tris.size() - 3:
+		var v0:Vector3 = temp_tris[tri_i]
+		var v1:Vector3 = temp_tris[tri_i + 1]
+		var v2:Vector3 = temp_tris[tri_i + 2]
+		var triangle:Triangle = Triangle.new()
+		triangle.v0 = cube_global_transform * v0
+		triangle.v1 = cube_global_transform * v1
+		triangle.v2 = cube_global_transform * v2
+		# triangle.v0 = v0
+		# triangle.v1 = v1
+		# triangle.v2 = v2
+		triangle.material = TriangleMaterial.new()
+		triangle.material.color = cube_mesh.get_active_material(0).albedo_color
+		tris.append(triangle)
+		tri_i += 3
+
+
+func _send_suzanne_mesh() -> void:
+	
+	var suzanne_global_transform:Transform3D = suzanne_rb.global_transform
+	var suzanne_mesh:MeshInstance3D = suzanne_rb.get_node("suzanne/Suzanne")
+	var temp_tris:Array = suzanne_mesh.mesh.get_faces()
+	
+	var tri_i:int = 0
+	while tri_i <= temp_tris.size() - 3:
+		var v0:Vector3 = temp_tris[tri_i]
+		var v1:Vector3 = temp_tris[tri_i + 1]
+		var v2:Vector3 = temp_tris[tri_i + 2]
+		var triangle:Triangle = Triangle.new()
+		triangle.v0 = suzanne_global_transform * v0
+		triangle.v1 = suzanne_global_transform * v1
+		triangle.v2 = suzanne_global_transform * v2
+		# triangle.v0 = v0
+		# triangle.v1 = v1
+		# triangle.v2 = v2
+		triangle.material = TriangleMaterial.new()
+		triangle.material.color = suzanne_mesh.get_active_material(0).albedo_color
+		tris.append(triangle)
+		tri_i += 3
 
 
 func _run_compute() -> void:

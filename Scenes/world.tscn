@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://sqwenlv65tc1" path="res://Scripts/world.gd" id="1_8j60k"]
 [ext_resource type="Material" uid="uid://chn18tyk66tj6" path="res://Resources/Materials/floor_material.tres" id="2_fo5ed"]
 [ext_resource type="Material" uid="uid://4iahf3p44jsk" path="res://Resources/Materials/cube_material.tres" id="3_5ukr8"]
+[ext_resource type="PackedScene" uid="uid://cchrme4tgupkd" path="res://Scenes/suzanne.tscn" id="4_8j60k"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_akjsa"]
 material = ExtResource("2_fo5ed")
@@ -32,7 +33,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25803113, 0)
 shape = SubResource("BoxShape3D_bmdr2")
 
 [node name="cube" type="StaticBody3D" parent="world" unique_id=1465407880]
+process_mode = 4
 transform = Transform3D(0.91342473, 0, -0.40700766, 0, 1, 0, 0.40700766, 0, 0.91342473, -1.009, -1, -4.862)
+visible = false
 
 [node name="cube_mesh" type="MeshInstance3D" parent="world/cube" unique_id=394170881]
 mesh = SubResource("BoxMesh_akjsa")
@@ -40,5 +43,9 @@ mesh = SubResource("BoxMesh_akjsa")
 [node name="cube_collision" type="CollisionShape3D" parent="world/cube" unique_id=575155415]
 shape = SubResource("BoxShape3D_m1n40")
 
+[node name="suzanne" parent="world" unique_id=2082695228 instance=ExtResource("4_8j60k")]
+transform = Transform3D(1, 0, 0, 0, 0.8160266, 0.5780143, 0, -0.5780143, 0.8160266, -0.9859462, -0.8827658, -5.3371983)
+gravity_scale = 0.0
+
 [node name="spawn_pos" type="Node3D" parent="." unique_id=983624107]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.4656324, 1.8089378, -1.9339314)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.4656324, 0.95930314, -1.9339314)

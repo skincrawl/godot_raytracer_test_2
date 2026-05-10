@@ -15,9 +15,9 @@ run/main_scene="uid://d271qir3yue6f"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
-[display]
+[filesystem]
 
-window/size/mode=4
+import/blender/enabled=false
 
 [input]
 

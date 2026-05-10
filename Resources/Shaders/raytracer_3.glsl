@@ -107,7 +107,7 @@ bool intersect_scene(vec3 ray_origin, vec3 ray_dir, out Hit hit) {
     vec3 color;
 
     // int n // length of the tris array. Is there a way to calculate it? I guess I should only do that once though
-    int n_tris = 14;
+    int n_tris = 1024;
 
     for(int i = 0; i < n_tris; i++){
         float t = 0.0;
