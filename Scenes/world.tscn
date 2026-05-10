@@ -22,13 +22,13 @@ script = ExtResource("1_8j60k")
 [node name="world" type="Node3D" parent="." unique_id=1360348104]
 
 [node name="floor" type="StaticBody3D" parent="world" unique_id=616280680]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.5, -3.9169245)
 
 [node name="floor_mesh" type="MeshInstance3D" parent="world/floor" unique_id=1189412794]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.5, -3.9169245)
 mesh = SubResource("PlaneMesh_akjsa")
 
 [node name="floor_collision" type="CollisionShape3D" parent="world/floor" unique_id=100188960]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.007446289, -1.7519485, -3.8995361)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25803113, 0)
 shape = SubResource("BoxShape3D_bmdr2")
 
 [node name="cube" type="StaticBody3D" parent="world" unique_id=1465407880]
@@ -41,4 +41,4 @@ mesh = SubResource("BoxMesh_akjsa")
 shape = SubResource("BoxShape3D_m1n40")
 
 [node name="spawn_pos" type="Node3D" parent="." unique_id=983624107]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.31940043, -0.52880716)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8089378, -0.52880716)

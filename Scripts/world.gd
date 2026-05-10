@@ -30,6 +30,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	
+	# Adding the player once the world is ready because it needs a reference to the geometry to draw it
 	player = player_packed.instantiate()
 	add_child(player)
 	player.global_position = spawn_pos.global_position

@@ -15,5 +15,5 @@ shape = SubResource("CapsuleShape3D_m1n40")
 [node name="screen_texture" type="TextureRect" parent="." unique_id=1775906006]
 
 [node name="camera" type="Camera3D" parent="." unique_id=785584202]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.48969668)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.52734387, 0.0054242015)
 current = true
