@@ -31,6 +31,8 @@ var camera_buffer:RID
 var skybox_texture:RID
 var uniform_set:RID
 
+var byte_data:PackedByteArray
+
 var tris:Array = []
 var triangle_float_data:PackedFloat32Array = PackedFloat32Array()
 
@@ -88,7 +90,7 @@ func _ready() -> void:
 	# Triangles
 	_setup_scene()
 	
-	var byte_data:PackedByteArray = triangle_float_data.to_byte_array()
+	byte_data = triangle_float_data.to_byte_array()
 	tri_buffer = rd.storage_buffer_create(byte_data.size(), byte_data)
 	
 	var tri_uniform:RDUniform = RDUniform.new()
@@ -325,6 +327,16 @@ func _run_compute() -> void:
 	
 	rd.compute_list_bind_compute_pipeline(compute_list, pipeline)
 	rd.compute_list_bind_uniform_set(compute_list, uniform_set, 0)
+	
+	# Triangle count
+	
+	var triangle_count:int = byte_data.size()
+	
+	var push_constants := PackedByteArray()
+	push_constants.resize(16)
+	push_constants.encode_s32(0, triangle_count)
+	
+	rd.compute_list_set_push_constant(compute_list, push_constants, push_constants.size())
 	
 	rd.compute_list_dispatch(
 		compute_list,

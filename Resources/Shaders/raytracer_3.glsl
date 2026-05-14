@@ -29,6 +29,10 @@ layout(std430, binding = 0) buffer Triangles {
     Triangle tris[];
 };
 
+layout(push_constant) uniform Params {
+    int triangle_count;
+} params;
+
 layout(local_size_x = 8, local_size_y = 8) in;
 
 // Output texture
@@ -106,10 +110,7 @@ bool intersect_scene(vec3 ray_origin, vec3 ray_dir, out Hit hit) {
     int hit_index = -1;
     vec3 color;
 
-    // int n // length of the tris array. Is there a way to calculate it? I guess I should only do that once though
-    int n_tris = 1024;
-
-    for(int i = 0; i < n_tris; i++){
+    for(int i = 0; i < params.triangle_count; i++){
         float t = 0.0;
 
         if(intersect_triangle(ray_origin, ray_dir, tris[i], t)){
