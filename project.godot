@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="raytracer_test_3"
+config/name="raytracer_test"
 run/main_scene="uid://d271qir3yue6f"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"

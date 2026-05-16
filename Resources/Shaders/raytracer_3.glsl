@@ -4,7 +4,7 @@
 #define MAX_BOUNCES 4
 
 
-// This one attempts to load in triangle data from Godot
+// This one loads in triangle data from Godot
 
 
 struct Material {
@@ -61,6 +61,21 @@ vec3 light_dir = normalize(vec3(0.4, -1.0, -0.2));
 
 
 
+bool intersect_aabb(vec3 ray_origin, vec3 ray_dir, vec3 box_min, vec3 box_max) {
+
+    vec3 inv_dir = 1.0 / ray_dir;
+
+    vec3 t0s = (box_min - ray_origin) * inv_dir;
+    vec3 t1s = (box_max - ray_origin) * inv_dir;
+
+    vec3 tmin = min(t0s, t1s);
+    vec3 tmax = max(t0s, t1s);
+
+    float t_enter = max(max(tmin.x, tmin.y), tmin.z);
+    float t_exit  = min(min(tmax.x, tmax.y), tmax.z);
+
+    return t_exit >= max(t_enter, 0.0);
+}
 
 bool intersect_triangle(
 
@@ -75,7 +90,7 @@ bool intersect_triangle(
     vec3 pvec = cross(ray_dir, edge2);
     float det = dot(edge1, pvec);
 
-    if (abs(det) < 0.000001)
+    if (det > -0.000001)
         return false;
 
     float inv_det = 1.0 / det;

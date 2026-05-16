@@ -407,3 +407,48 @@ func _get_texture_from_gpu() -> void:
 	var new_texture:ImageTexture = ImageTexture.create_from_image(image)
 	
 	screen_texture.texture = new_texture
+
+
+func build_bvh(_triangles:Array):
+	
+	var bvh_node:BVHNode = BVHNode.new()
+	var leaf_tris:int = 5
+	
+	if _triangles.size() < leaf_tris:
+		# Make leaf node
+		bvh_node.is_leaf = true
+		return
+	
+	# Choose split axis
+	
+	# Sort triangles by centroid
+	
+	# Split in half
+	
+	# node.left = build_bvh(left half)
+	# node.right = build_bvh(right half)
+	
+	# node.aabb = enclosing bounds of children
+	pass
+
+
+func triangle_centroid(_tri:Triangle) -> Vector3:
+	
+	return (1.0 / 3.0) * (_tri.v0 + _tri.v1 + _tri.v2)
+
+
+func triangle_aabb(_tri:Triangle) -> AABB:
+	
+	var min_aabb := Vector3(
+							min(_tri.v0.x, _tri.v1.x, _tri.v2.x),
+							min(_tri.v0.y, _tri.v1.y, _tri.v2.y),
+							min(_tri.v0.z, _tri.v1.z, _tri.v2.z)
+					)
+	
+	var max_aabb := Vector3(
+							max(_tri.v0.x, _tri.v1.x, _tri.v2.x),
+							max(_tri.v0.y, _tri.v1.y, _tri.v2.y),
+							max(_tri.v0.z, _tri.v1.z, _tri.v2.z)
+					)
+	
+	return AABB(min_aabb, max_aabb - min_aabb)
