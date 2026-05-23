@@ -230,6 +230,8 @@ func _setup_scene() -> void:
 	if suzanne_rb.visible:
 		_send_suzanne_mesh()
 	
+	build_bvh(tris, 0)
+	
 	# Converting triangle data to floats
 	for triangle in tris:
 		triangle_float_data.append_array([
@@ -409,46 +411,44 @@ func _get_texture_from_gpu() -> void:
 	screen_texture.texture = new_texture
 
 
-func build_bvh(_triangles:Array):
+func build_bvh(_tris:Array, _depth:int) -> BVHNode:
 	
-	var bvh_node:BVHNode = BVHNode.new()
-	var leaf_tris:int = 5
+	var node:BVHNode = BVHNode.new()
 	
-	if _triangles.size() < leaf_tris:
-		# Make leaf node
-		bvh_node.is_leaf = true
-		return
+	# 1. Compute node bounds
+	node.aabb.position = Vector3.ZERO
+	node.aabb.end = Vector3.ZERO
 	
-	# Choose split axis
+	for _t in _tris:
+		var t:Triangle = _t
+		node.aabb = node.aabb.merge(t.aabb())
 	
-	# Sort triangles by centroid
+	# 2. Stop condition (make leaf)
+	var leaf_tris:int = 4
 	
-	# Split in half
+	if _tris.size() <= leaf_tris:
+		node.is_leaf = true
+		# node.start = store_
+		node.count = _tris.size()
+		
+		# print("leaf tri count: ", node.count)
+		# print("depth: ", _depth)
+		# print("aabb: ", node.aabb)
+		return node
 	
-	# node.left = build_bvh(left half)
-	# node.right = build_bvh(right half)
+	# 3. Choose split axis (longest axis)
+	var axis = node.aabb.get_longest_axis_index()
 	
-	# node.aabb = enclosing bounds of children
-	pass
-
-
-func triangle_centroid(_tri:Triangle) -> Vector3:
+	# 4. Sort by centroid along axis
+	_tris.sort_custom(func(a, b): return a.centroid()[axis] < b.centroid()[axis])
 	
-	return (1.0 / 3.0) * (_tri.v0 + _tri.v1 + _tri.v2)
-
-
-func triangle_aabb(_tri:Triangle) -> AABB:
+	# 5. Split in half
+	var mid:int = _tris.size() / 2
+	var left_tris = _tris.slice(0, mid)
+	var right_tris = _tris.slice(mid)
 	
-	var min_aabb := Vector3(
-							min(_tri.v0.x, _tri.v1.x, _tri.v2.x),
-							min(_tri.v0.y, _tri.v1.y, _tri.v2.y),
-							min(_tri.v0.z, _tri.v1.z, _tri.v2.z)
-					)
+	# 6. Recurse
+	node.left = build_bvh(left_tris, _depth + 1)
+	node.right = build_bvh(right_tris, _depth + 1)
 	
-	var max_aabb := Vector3(
-							max(_tri.v0.x, _tri.v1.x, _tri.v2.x),
-							max(_tri.v0.y, _tri.v1.y, _tri.v2.y),
-							max(_tri.v0.z, _tri.v1.z, _tri.v2.z)
-					)
-	
-	return AABB(min_aabb, max_aabb - min_aabb)
+	return node
