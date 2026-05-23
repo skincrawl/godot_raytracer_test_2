@@ -141,10 +141,10 @@ func _ready() -> void:
 	_setup_camera_buffer()
 	
 	# 6. Dispatch compute shader
-	_run_compute()
+	# _run_compute()
 	
 	# 7. Read back texture from GPU to CPU
-	_get_texture_from_gpu()
+	# _get_texture_from_gpu()
 
 
 func _input(_event:InputEvent) -> void:
@@ -199,8 +199,8 @@ func _process(_delta:float) -> void:
 		return
 	
 	_setup_camera_buffer()
-	_run_compute()
-	_get_texture_from_gpu()
+	# _run_compute()
+	# _get_texture_from_gpu()
 	
 	redraw_needed = false
 	mouse_motion = Vector2.ZERO
@@ -302,6 +302,8 @@ func _send_suzanne_mesh() -> void:
 	var suzanne_global_transform:Transform3D = suzanne_rb.global_transform
 	var suzanne_mesh:MeshInstance3D = suzanne_rb.get_node("suzanne/Suzanne")
 	var temp_tris:Array = suzanne_mesh.mesh.get_faces()
+	
+	# print("tris: ", temp_tris.size())
 	
 	var tri_i:int = 0
 	while tri_i <= temp_tris.size() - 3:
@@ -415,13 +417,23 @@ func build_bvh(_tris:Array, _depth:int) -> BVHNode:
 	
 	var node:BVHNode = BVHNode.new()
 	
+	# print("node tris range: " + str(_tris[0].centroid().distance_to(_tris[_tris.size() - 1].centroid())))
+	
 	# 1. Compute node bounds
-	node.aabb.position = Vector3.ZERO
-	node.aabb.end = Vector3.ZERO
+	node.aabb = _tris[0].aabb()
 	
 	for _t in _tris:
 		var t:Triangle = _t
 		node.aabb = node.aabb.merge(t.aabb())
+	
+	# Draw aabb
+	var max_depth:int = 8
+	var depth_ratio:float = float(_depth) / float(max_depth)
+	# var color:Color = Color(0.2 + _depth * 0.1, 1.0 - _depth * 0.05, 1.0)
+	# var color:Color = Color(depth_ratio, 1.0 - depth_ratio, 1.0)
+	var color:Color = Color(depth_ratio, 1.0 - depth_ratio, 1.0)
+	# print("depth ratio: ", depth_ratio)
+	draw_aabb(node.aabb, color)
 	
 	# 2. Stop condition (make leaf)
 	var leaf_tris:int = 4
@@ -443,12 +455,85 @@ func build_bvh(_tris:Array, _depth:int) -> BVHNode:
 	_tris.sort_custom(func(a, b): return a.centroid()[axis] < b.centroid()[axis])
 	
 	# 5. Split in half
-	var mid:int = _tris.size() / 2
-	var left_tris = _tris.slice(0, mid)
-	var right_tris = _tris.slice(mid)
+	var mid:int = int(_tris.size() / 2.0)
+	var left_tris:Array = _tris.slice(0, mid)
+	var right_tris:Array = _tris.slice(mid)
 	
 	# 6. Recurse
 	node.left = build_bvh(left_tris, _depth + 1)
 	node.right = build_bvh(right_tris, _depth + 1)
 	
 	return node
+
+
+func draw_aabb(_aabb:AABB, _color:Color = Color.WHITE) -> void:
+	
+	var im := ImmediateMesh.new()
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.top_level = true
+	mesh_instance.mesh = im
+	
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	
+	add_child(mesh_instance)
+	
+	var min:Vector3 = _aabb.position
+	var max:Vector3 = _aabb.end
+	
+	var p000 = Vector3(min.x, min.y, min.z)
+	var p001 = Vector3(min.x, min.y, max.z)
+	var p010 = Vector3(min.x, max.y, min.z)
+	var p011 = Vector3(min.x, max.y, max.z)
+	
+	var p100 = Vector3(max.x, min.y, min.z)
+	var p101 = Vector3(max.x, min.y, max.z)
+	var p110 = Vector3(max.x, max.y, min.z)
+	var p111 = Vector3(max.x, max.y, max.z)
+	
+	im.surface_begin(Mesh.PRIMITIVE_LINES)
+	
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p000)
+	im.surface_add_vertex(p001)
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p000)
+	im.surface_add_vertex(p010)
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p000)
+	im.surface_add_vertex(p100)
+	
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p111)
+	im.surface_add_vertex(p110)
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p111)
+	im.surface_add_vertex(p101)
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p111)
+	im.surface_add_vertex(p011)
+	
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p001)
+	im.surface_add_vertex(p101)
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p010)
+	im.surface_add_vertex(p011)
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p100)
+	im.surface_add_vertex(p110)
+	
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p001)
+	im.surface_add_vertex(p011)
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p010)
+	im.surface_add_vertex(p110)
+	im.surface_set_color(_color)
+	im.surface_add_vertex(p100)
+	im.surface_add_vertex(p101)
+	
+	im.surface_end()
+	
+	mesh_instance.set_surface_override_material(0, mat)
