@@ -33,7 +33,10 @@ var uniform_set:RID
 
 var byte_data:PackedByteArray
 
-var tris:Array = []
+var tris:Array[Triangle] = []
+var flattened_tris:Array[Triangle] = []
+var bvh:BVHNode
+var flattened_bvh:Array[FlatBVHNode]
 var triangle_float_data:PackedFloat32Array = PackedFloat32Array()
 
 var previous_pos:Vector3 = Vector3.ZERO
@@ -230,7 +233,8 @@ func _setup_scene() -> void:
 	if suzanne_rb.visible:
 		_send_suzanne_mesh()
 	
-	build_bvh(tris, 0)
+	bvh = build_bvh(tris, 0, 0, 0)
+	flatten_bvh(bvh, flattened_bvh)
 	
 	# Converting triangle data to floats
 	for triangle in tris:
@@ -413,7 +417,7 @@ func _get_texture_from_gpu() -> void:
 	screen_texture.texture = new_texture
 
 
-func build_bvh(_tris:Array, _depth:int) -> BVHNode:
+func build_bvh(_tris:Array, _start:int, _count:int, _depth:int) -> BVHNode:
 	
 	var node:BVHNode = BVHNode.new()
 	
@@ -422,8 +426,7 @@ func build_bvh(_tris:Array, _depth:int) -> BVHNode:
 	# 1. Compute node bounds
 	node.aabb = _tris[0].aabb()
 	
-	for _t in _tris:
-		var t:Triangle = _t
+	for t in _tris:
 		node.aabb = node.aabb.merge(t.aabb())
 	
 	# Draw aabb
@@ -440,12 +443,14 @@ func build_bvh(_tris:Array, _depth:int) -> BVHNode:
 	
 	if _tris.size() <= leaf_tris:
 		node.is_leaf = true
-		# node.start = store_
+		node.start = flattened_tris.size()
 		node.count = _tris.size()
 		
 		# print("leaf tri count: ", node.count)
 		# print("depth: ", _depth)
 		# print("aabb: ", node.aabb)
+		for t in _tris:
+			flattened_tris.append(t)
 		return node
 	
 	# 3. Choose split axis (longest axis)
@@ -460,10 +465,38 @@ func build_bvh(_tris:Array, _depth:int) -> BVHNode:
 	var right_tris:Array = _tris.slice(mid)
 	
 	# 6. Recurse
-	node.left = build_bvh(left_tris, _depth + 1)
-	node.right = build_bvh(right_tris, _depth + 1)
+	node.left = build_bvh(left_tris, -1, left_tris.size(), _depth + 1)
+	node.right = build_bvh(right_tris, -1, right_tris.size(), _depth + 1)
 	
 	return node
+
+
+func flatten_bvh(_node:BVHNode, out:Array) -> int:
+	
+	var index:int = out.size()
+	
+	# Placeholder
+	out.append(null)
+	
+	var flat = FlatBVHNode.new()
+	
+	flat.aabb_min = _node.aabb.position
+	flat.aabb_max = _node.aabb.end
+	
+	flat.start = _node.start
+	flat.count = _node.count
+	flat.is_leaf = int(_node.is_leaf)
+	
+	if _node.is_leaf:
+		flat.left = -1
+		flat.right = -1
+	else:
+		flat.left = flatten_bvh(_node.left, out)
+		flat.right = flatten_bvh(_node.right, out)
+	
+	out[index] = flat
+	
+	return index
 
 
 func draw_aabb(_aabb:AABB, _color:Color = Color.WHITE) -> void:
