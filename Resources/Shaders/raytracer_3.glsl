@@ -18,6 +18,16 @@ struct Triangle {
     Material material;
 };
 
+struct BVHNode {
+    vec4 min;
+    vec4 left;
+
+    vec4 max;
+    vec4 right;
+
+    vec4 meta; // start, count, is_leaf
+};
+
 struct Hit {
     vec3 pos;
     vec3 normal;
@@ -29,6 +39,11 @@ layout(std430, binding = 0) buffer Triangles {
     Triangle tris[];
 };
 
+// BVH
+layout(std430, binding = 1) buffer BVH {
+    BVHNode bvh_nodes[];
+};
+
 layout(push_constant) uniform Params {
     int triangle_count;
 } params;
@@ -36,10 +51,10 @@ layout(push_constant) uniform Params {
 layout(local_size_x = 8, local_size_y = 8) in;
 
 // Output texture
-layout(set = 0, binding = 1, rgba32f) uniform image2D dest_tex;
+layout(set = 0, binding = 2, rgba32f) uniform image2D dest_tex;
 
 // Camera
-layout(set = 0, binding = 2) uniform CameraData {
+layout(set = 0, binding = 3) uniform CameraData {
     vec4 cam_pos_fov; // xyz = position, w = fov_y (radians)
     vec3 cam_right;
     vec3 cam_up;
@@ -47,7 +62,7 @@ layout(set = 0, binding = 2) uniform CameraData {
 };
 
 // Skybox texture
-layout(set = 0, binding = 3) uniform sampler2D skybox_tex;
+layout(set = 0, binding = 4) uniform sampler2D skybox_tex;
 
 
 const float PI = 3.14159265359;
@@ -59,6 +74,7 @@ const float PI = 3.14159265359;
 // So, down and slightly to the right and away from the camera
 vec3 light_dir = normalize(vec3(0.4, -1.0, -0.2));
 
+vec3 final_color = vec3(0.0, 0.0, 0.0);
 
 
 bool intersect_aabb(vec3 ray_origin, vec3 ray_dir, vec3 box_min, vec3 box_max) {
@@ -121,17 +137,95 @@ vec3 calculate_normal(Triangle tri) {
 
 bool intersect_scene(vec3 ray_origin, vec3 ray_dir, out Hit hit) {
 
+    /*
+    int stack[64];
+    int ptr = 0;
+    stack[ptr++] = 0;
+
+    int visited_nodes = 0;
+
+    while (ptr > 0) {
+
+        int node_index = stack[--ptr];
+        visited_nodes++;
+
+        BVHNode node = bvh_nodes[node_index];
+
+        int left = floatBitsToInt(node.left.x);
+        int right = floatBitsToInt(node.right.x);
+
+        int is_leaf = floatBitsToInt(node.meta.z);
+        if (is_leaf > 0.5) {
+            hit.albedo = vec3(1.0, 0.0, 1.0); // MAGENTA = leaf reached
+            return true;
+        }
+
+        if (left >= 0) stack[ptr++] = left;
+        if (right >= 0) stack[ptr++] = right;
+
+        if (ptr >= 60) break;
+    }
+
+    hit.albedo = vec3(float(visited_nodes) / 100.0, 0.0, 0.0);
+    return true;
+    */
+
+    // Testing above!!!
+
     float t_closest = 1e20; // large number
     int hit_index = -1;
     vec3 color;
 
-    for(int i = 0; i < params.triangle_count; i++){
-        float t = 0.0;
+    bool was_hit = false;
 
-        if(intersect_triangle(ray_origin, ray_dir, tris[i], t)){
-            if (t < t_closest){
-                t_closest = t;
-                hit_index = i;
+    int stack[256];
+    int stack_ptr = 0;
+
+    stack[stack_ptr++] = 0; // root
+
+    while(stack_ptr > 0) {
+
+        int node_index = stack[--stack_ptr];
+        BVHNode node = bvh_nodes[node_index];
+
+        if (stack_ptr >= 60) {
+            break;
+        }
+
+        if (node_index < 0 || node_index >= bvh_nodes.length()) {
+            break;
+        }
+
+        if (!intersect_aabb(ray_origin, ray_dir, node.min.xyz, node.max.xyz)) {
+            continue;
+        }
+
+        int start = int(node.meta.x);
+        int count = int(node.meta.y);
+        int is_leaf = int(node.meta.z);
+        if (is_leaf == 1) { // Leaf node
+
+            // final_color = vec3(0.0, 1.0, 0.0);
+
+            for (int i = 0; i < count; i++) {
+                Triangle tri = tris[start + i];
+                float t = 0.0;
+
+                if (intersect_triangle(ray_origin, ray_dir, tri, t)) {
+                    was_hit = true;
+                    if (t < t_closest){
+                        t_closest = t;
+                        hit_index = start + i;
+                    }
+                }
+            }
+
+        } else {
+            if (stack_ptr < 62) {
+                int left = int(node.left.x);
+                int right = int(node.right.x);
+                if (left >= 0) stack[stack_ptr++] = left;
+                if (left >= 0) stack[stack_ptr++] = right;
             }
         }
     }
@@ -189,7 +283,7 @@ void main(){
 
     uint bounces = 0;
     vec3 throughput = vec3(1.0);
-    vec3 final_color = vec3(0.0);
+    // vec3 final_color = vec3(0.0);
     Hit hit;
 
     for (int i = 0; i < MAX_BOUNCES; i++) {

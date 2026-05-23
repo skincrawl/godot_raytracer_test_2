@@ -13,3 +13,5 @@ var start:int = 0
 var count:int = 0
 
 var is_leaf:int = 0
+
+var padding:float = 0.0

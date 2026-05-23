@@ -27,17 +27,20 @@ var shader:RID
 var pipeline:RID
 var texture:RID
 var tri_buffer:RID
+var bvh_buffer:RID
 var camera_buffer:RID
 var skybox_texture:RID
 var uniform_set:RID
 
-var byte_data:PackedByteArray
+var tri_byte_data:PackedByteArray
+var bvh_byte_data:PackedByteArray
 
 var tris:Array[Triangle] = []
 var flattened_tris:Array[Triangle] = []
 var bvh:BVHNode
 var flattened_bvh:Array[FlatBVHNode]
 var triangle_float_data:PackedFloat32Array = PackedFloat32Array()
+var bvh_float_data:PackedFloat32Array = PackedFloat32Array()
 
 var previous_pos:Vector3 = Vector3.ZERO
 var mouse_motion:Vector2 = Vector2.ZERO # Used to know if we need to redraw the screen
@@ -93,18 +96,28 @@ func _ready() -> void:
 	# Triangles
 	_setup_scene()
 	
-	byte_data = triangle_float_data.to_byte_array()
-	tri_buffer = rd.storage_buffer_create(byte_data.size(), byte_data)
+	tri_byte_data = triangle_float_data.to_byte_array()
+	tri_buffer = rd.storage_buffer_create(tri_byte_data.size(), tri_byte_data)
 	
 	var tri_uniform:RDUniform = RDUniform.new()
 	tri_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	tri_uniform.binding = 0
 	tri_uniform.add_id(tri_buffer)
 	
+	# BVH
+	
+	bvh_byte_data = bvh_float_data.to_byte_array()
+	bvh_buffer = rd.storage_buffer_create(bvh_byte_data.size(), bvh_byte_data)
+	
+	var bvh_uniform:RDUniform = RDUniform.new()
+	bvh_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+	bvh_uniform.binding = 1
+	bvh_uniform.add_id(bvh_buffer)
+	
 	# Output image
 	var image_uniform:RDUniform = RDUniform.new()
 	image_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
-	image_uniform.binding = 1
+	image_uniform.binding = 2
 	image_uniform.add_id(texture)
 	
 	var buffer_size:int = (
@@ -118,7 +131,7 @@ func _ready() -> void:
 	
 	var camera_uniform:RDUniform = RDUniform.new()
 	camera_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_UNIFORM_BUFFER
-	camera_uniform.binding = 2
+	camera_uniform.binding = 3
 	camera_uniform.add_id(camera_buffer)
 	
 	# Skybox texture
@@ -135,19 +148,19 @@ func _ready() -> void:
 	
 	var skybox_uniform:RDUniform = RDUniform.new()
 	skybox_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
-	skybox_uniform.binding = 3
+	skybox_uniform.binding = 4
 	skybox_uniform.add_id(sampler)
 	skybox_uniform.add_id(skybox_rid)
 	
-	uniform_set = rd.uniform_set_create([tri_uniform, image_uniform, camera_uniform, skybox_uniform], shader, 0)
+	uniform_set = rd.uniform_set_create([tri_uniform, bvh_uniform, image_uniform, camera_uniform, skybox_uniform], shader, 0)
 	
 	_setup_camera_buffer()
 	
 	# 6. Dispatch compute shader
-	# _run_compute()
+	_run_compute()
 	
 	# 7. Read back texture from GPU to CPU
-	# _get_texture_from_gpu()
+	_get_texture_from_gpu()
 
 
 func _input(_event:InputEvent) -> void:
@@ -202,8 +215,8 @@ func _process(_delta:float) -> void:
 		return
 	
 	_setup_camera_buffer()
-	# _run_compute()
-	# _get_texture_from_gpu()
+	_run_compute()
+	_get_texture_from_gpu()
 	
 	redraw_needed = false
 	mouse_motion = Vector2.ZERO
@@ -236,8 +249,11 @@ func _setup_scene() -> void:
 	bvh = build_bvh(tris, 0, 0, 0)
 	flatten_bvh(bvh, flattened_bvh)
 	
+	# print("bvh 0 aabb min: ", flattened_bvh[0].aabb_min)
+	# print("bvh 0 aabb max: ", flattened_bvh[0].aabb_max)
+	
 	# Converting triangle data to floats
-	for triangle in tris:
+	for triangle in flattened_tris:
 		triangle_float_data.append_array([
 		# v0
 		triangle.v0.x, triangle.v0.y, triangle.v0.z, 0.0,
@@ -250,6 +266,22 @@ func _setup_scene() -> void:
 		triangle.material.color.g,
 		triangle.material.color.b,
 		0.0
+	])
+	
+	# Converting bvh data to floats
+	# Remember that glsl takes vec3 as vec4, so you need some padding to make each 16 bytes!
+	for flat_bvh in flattened_bvh:
+		bvh_float_data.append_array([
+		# min
+		flat_bvh.aabb_min.x, flat_bvh.aabb_min.y, flat_bvh.aabb_min.z, 0.0,
+		# left
+		float(flat_bvh.left), 0.0, 0.0, 0.0,
+		# max
+		flat_bvh.aabb_max.x, flat_bvh.aabb_max.y, flat_bvh.aabb_max.z, 0.0,
+		# right
+		float(flat_bvh.right), 0.0, 0.0, 0.0,
+		# metadata; start + count + is_leaf + padding
+		float(flat_bvh.start), float(flat_bvh.count), float(flat_bvh.is_leaf), 0.0
 	])
 
 
@@ -338,7 +370,7 @@ func _run_compute() -> void:
 	
 	# Triangle count
 	
-	var triangle_count:int = byte_data.size()
+	var triangle_count:int = tri_byte_data.size()
 	
 	var push_constants := PackedByteArray()
 	push_constants.resize(16)
@@ -441,6 +473,8 @@ func build_bvh(_tris:Array, _start:int, _count:int, _depth:int) -> BVHNode:
 	# 2. Stop condition (make leaf)
 	var leaf_tris:int = 4
 	
+	var leaf_printed:bool = false
+	
 	if _tris.size() <= leaf_tris:
 		node.is_leaf = true
 		node.start = flattened_tris.size()
@@ -451,6 +485,13 @@ func build_bvh(_tris:Array, _start:int, _count:int, _depth:int) -> BVHNode:
 		# print("aabb: ", node.aabb)
 		for t in _tris:
 			flattened_tris.append(t)
+		
+		# if not leaf_printed:
+		# 	leaf_printed = true
+		# 	print("start: ", node.start)
+		# 	print("count: ", node.count)
+		# 	for tri_i in range(node.start, node.start + node.count):
+		# 		print("triangles in range: ", flattened_tris[tri_i])
 		return node
 	
 	# 3. Choose split axis (longest axis)
@@ -512,18 +553,18 @@ func draw_aabb(_aabb:AABB, _color:Color = Color.WHITE) -> void:
 	
 	add_child(mesh_instance)
 	
-	var min:Vector3 = _aabb.position
-	var max:Vector3 = _aabb.end
+	var _min:Vector3 = _aabb.position
+	var _max:Vector3 = _aabb.end
 	
-	var p000 = Vector3(min.x, min.y, min.z)
-	var p001 = Vector3(min.x, min.y, max.z)
-	var p010 = Vector3(min.x, max.y, min.z)
-	var p011 = Vector3(min.x, max.y, max.z)
+	var p000 = Vector3(_min.x, _min.y, _min.z)
+	var p001 = Vector3(_min.x, _min.y, _max.z)
+	var p010 = Vector3(_min.x, _max.y, _min.z)
+	var p011 = Vector3(_min.x, _max.y, _max.z)
 	
-	var p100 = Vector3(max.x, min.y, min.z)
-	var p101 = Vector3(max.x, min.y, max.z)
-	var p110 = Vector3(max.x, max.y, min.z)
-	var p111 = Vector3(max.x, max.y, max.z)
+	var p100 = Vector3(_max.x, _min.y, _min.z)
+	var p101 = Vector3(_max.x, _min.y, _max.z)
+	var p110 = Vector3(_max.x, _max.y, _min.z)
+	var p111 = Vector3(_max.x, _max.y, _max.z)
 	
 	im.surface_begin(Mesh.PRIMITIVE_LINES)
 	
