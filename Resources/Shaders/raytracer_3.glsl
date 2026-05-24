@@ -137,41 +137,6 @@ vec3 calculate_normal(Triangle tri) {
 
 bool intersect_scene(vec3 ray_origin, vec3 ray_dir, out Hit hit) {
 
-    /*
-    int stack[64];
-    int ptr = 0;
-    stack[ptr++] = 0;
-
-    int visited_nodes = 0;
-
-    while (ptr > 0) {
-
-        int node_index = stack[--ptr];
-        visited_nodes++;
-
-        BVHNode node = bvh_nodes[node_index];
-
-        int left = floatBitsToInt(node.left.x);
-        int right = floatBitsToInt(node.right.x);
-
-        int is_leaf = floatBitsToInt(node.meta.z);
-        if (is_leaf > 0.5) {
-            hit.albedo = vec3(1.0, 0.0, 1.0); // MAGENTA = leaf reached
-            return true;
-        }
-
-        if (left >= 0) stack[ptr++] = left;
-        if (right >= 0) stack[ptr++] = right;
-
-        if (ptr >= 60) break;
-    }
-
-    hit.albedo = vec3(float(visited_nodes) / 100.0, 0.0, 0.0);
-    return true;
-    */
-
-    // Testing above!!!
-
     float t_closest = 1e20; // large number
     int hit_index = -1;
     vec3 color;
@@ -266,9 +231,6 @@ void main(){
 
     float fov_y = cam_pos_fov.w;
     float focal = 1.0 / tan(fov_y * 0.5);
-
-    // float half_height = tan(fov_y * 0.5);
-    // float half_width = half_height * aspect;
 
     // Setting up the initial ray
     vec3 ray_origin = cam_pos_fov.xyz;
