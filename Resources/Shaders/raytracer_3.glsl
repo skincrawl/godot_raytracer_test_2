@@ -8,13 +8,21 @@
 
 
 struct Material {
-    vec3 color;
+    vec4 color;
+    vec4 roughness;
+    vec4 metallic;
 };
 
 struct Triangle {
-    vec3 v0;
-    vec3 v1;
-    vec3 v2;
+    vec4 v0;
+    vec4 v1;
+    vec4 v2;
+    Material material;
+};
+
+struct Sphere{
+    vec3 center;
+    float radius;
     Material material;
 };
 
@@ -32,6 +40,8 @@ struct Hit {
     vec3 pos;
     vec3 normal;
     vec3 albedo;
+    float roughness;
+    float metallic;
 };
 
 // Triangles
@@ -100,8 +110,12 @@ bool intersect_triangle(
     Triangle tri,
     out float t
 ){
-    vec3 edge1 = tri.v1 - tri.v0;
-    vec3 edge2 = tri.v2 - tri.v0;
+    vec3 v0 = tri.v0.xyz;
+    vec3 v1 = tri.v1.xyz;
+    vec3 v2 = tri.v2.xyz;
+
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
 
     vec3 pvec = cross(ray_dir, edge2);
     float det = dot(edge1, pvec);
@@ -111,7 +125,7 @@ bool intersect_triangle(
 
     float inv_det = 1.0 / det;
 
-    vec3 tvec = ray_origin - tri.v0;
+    vec3 tvec = ray_origin - v0;
 
     float u = dot(tvec, pvec) * inv_det;
     if (u < 0.0 || u > 1.0)
@@ -128,9 +142,83 @@ bool intersect_triangle(
     return t > 0.0;
 }
 
+bool intersect_sphere(
+
+    vec3 ray_origin,
+    vec3 ray_dir,
+    Sphere s,
+    out float t
+){
+    vec3 oc = ray_origin - s.center;
+    float a = dot(ray_dir, ray_dir);
+    float b = 2.0 * dot(oc, ray_dir);
+    float c = dot(oc, oc) - s.radius * s.radius;
+
+    float discriminant = b * b - 4.0 * a * c;
+    if (discriminant < 0.0)
+        return false;
+
+    float sqrt_d = sqrt(discriminant);
+
+    float t0 = (-b - sqrt_d) / (2.0 * a);
+    float t1 = (-b + sqrt_d) / (2.0 * a);
+
+    t = (t0 > 0.0) ? t0 : t1;
+
+    return t > 0.0;
+}
+
+float rand(in vec2 co) {
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+vec2 rand(in vec2 co, int a) {
+    return co + vec2(float(a) * 37.0);
+}
+
+vec3 random_hemisphere(vec3 normal, vec2 seed) {
+    float u = rand(seed);
+    float v = rand(seed + 17.0);
+
+    float phi = 2.0 * PI * u;
+    float cos_theta = sqrt(1.0 - v);
+    float sin_theta = sqrt(v);
+
+    vec3 tangent = normalize(
+        abs(normal.x) > 0.1
+        ? cross(normal, vec3(0.0, 1.0, 0.0))
+        : cross(normal, vec3(1.0, 0.0, 0.0))
+    );
+    vec3 bitangent = cross(normal, tangent);
+
+    return normalize(
+        tangent * cos(phi) * sin_theta +
+        bitangent * sin(phi) * sin_theta +
+        normal * cos_theta
+    );
+}
+
+/* float Schlick_Fresnel(float cos_theta) {
+
+}
+
+vec3 Burley(float cos_theta_L, float cos_theta_V, float roughness) {
+
+    float Fd90 = 0.5 + 2.0 * roughness * cos_theta_i * cos_theta_i;
+
+    float FL = Schlick_Fresnel(cos_theta_L);
+    float FV = Schlick_Fresnel(cos_theta_V);
+
+    float Fd = (1.0 + (Fd90 - 1.0) * FL) * (1.0 + (Fd90 - 1.0) * FV);
+}
+*/
+
 vec3 calculate_normal(Triangle tri) {
+    vec3 v0 = tri.v0.xyz;
+    vec3 v1 = tri.v1.xyz;
+    vec3 v2 = tri.v2.xyz;
     vec3 normal = normalize(
-        cross(tri.v1 - tri.v0, tri.v2 - tri.v0)
+        cross(v1 - v0, v2 - v0)
     );
     return normal;
 }
@@ -204,7 +292,11 @@ bool intersect_scene(vec3 ray_origin, vec3 ray_dir, out Hit hit) {
             hit.normal = -hit.normal;
 
         hit.pos = ray_origin + ray_dir * t_closest;
-        hit.albedo = tri.material.color;
+        hit.albedo = tri.material.color.xyz;
+        // hit.roughness = 0.0;
+        // hit.metallic = 1.0;
+        hit.roughness = tri.material.roughness.x;
+        hit.metallic = tri.material.metallic.x;
 
         return true;
     } else {
@@ -245,10 +337,10 @@ void main(){
 
     uint bounces = 0;
     vec3 throughput = vec3(1.0);
-    // vec3 final_color = vec3(0.0);
+    vec3 final_color = vec3(0.0);
     Hit hit;
 
-    for (int i = 0; i < MAX_BOUNCES; i++) {
+    for (int bounce = 0; bounce < MAX_BOUNCES; bounce++) {
 
         if (!intersect_scene(ray_origin, ray_dir, hit)) {
             vec3 sky_color;
@@ -260,7 +352,10 @@ void main(){
             break;
         }
 
+        vec3 albedo = hit.albedo;
         vec3 normal = hit.normal;
+        float roughness = hit.roughness;
+        float metallic = hit.metallic;
 
         vec3 shadow_origin = hit.pos + normal * 0.001;
         Hit shadow_hit;
@@ -268,23 +363,48 @@ void main(){
         vec3 L = normalize(-light_dir); // direction FROM surface TO light
         bool in_shadow = intersect_scene(shadow_origin, L, shadow_hit);
 
+        float cos_theta = max(dot(normal, -ray_dir), 0.0);
+
         if (!in_shadow) {
 
             // direct lighting
-            float diffuse = max(dot(normal, L), 0.0);
-            final_color += throughput * hit.albedo * diffuse * light_color;
-            // final_color = hit.albedo;
+            float diffuse = cos_theta;
+            final_color += throughput * albedo * diffuse * light_color;
+            // final_color = albedo;
             // final_color = normal * 0.5 + 0.5;
             // final_color = abs(normal);
         } // else {
-            // final_color = vec3(0.0, 1.0, 0.0);
+        // final_color = vec3(0.0, 1.0, 0.0);
         // }
 
         // prepare next bounce
         ray_origin = hit.pos + normal * 0.001;
-        ray_dir = reflect(ray_dir, normal);
 
-        throughput *= hit.albedo * 0.5;
+        vec2 seed = rand(pixel, bounce);
+        vec3 diffuse_dir = random_hemisphere(normal, seed);
+        vec3 reflect_dir = reflect(ray_dir, normal);
+
+        // vec3 bounce_dir = normalize(
+        //     mix(reflect_dir, diffuse_dir, roughness)
+        // );
+
+        vec3 F0 = mix(vec3(0.04), albedo, metallic); // Dielectric default light amount
+        vec3 F = F0 + (1.0 - F0) * pow((1.0 - cos_theta), 5.0);
+        vec3 spec_color = mix(F, albedo, metallic);
+
+        float spec_prob = mix(1.0 - roughness, 1.0, length(F));
+        bool is_specular = (rand(seed) < spec_prob);
+        vec3 albedo_out;
+
+        if (is_specular) {
+            ray_dir = reflect_dir;
+            throughput *= F;
+        } else {
+            ray_dir = diffuse_dir;
+            throughput *= albedo;
+        }
+
+        // throughput *= 0.5;
 
         // color += contribution * calculate_contribution(ray_dir);
     }

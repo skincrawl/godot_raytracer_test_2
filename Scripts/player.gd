@@ -99,6 +99,11 @@ func _ready() -> void:
 	tri_byte_data = triangle_float_data.to_byte_array()
 	tri_buffer = rd.storage_buffer_create(tri_byte_data.size(), tri_byte_data)
 	
+	# var cpu_bytes:int = tri_byte_data.size()
+	# var expected:int = flattened_tris.size() * 96
+	# print("CPU bytes: ", cpu_bytes)
+	# print("expected: ", expected)
+	
 	var tri_uniform:RDUniform = RDUniform.new()
 	tri_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
 	tri_uniform.binding = 0
@@ -226,11 +231,17 @@ func _setup_scene() -> void:
 	
 	# Materials
 	var floor_material:TriangleMaterial = TriangleMaterial.new()
-	floor_material.color = Color(0.8, 0.8, 0.8, 1.0);
+	floor_material.color = Color(0.8, 0.8, 0.8, 1.0)
+	floor_material.roughness = 1.0
+	floor_material.metallic = 0.0
 	var cube_material:TriangleMaterial  = TriangleMaterial.new()
 	cube_material.color = Color(0.8, 0.2, 0.4, 1.0)
-	var emerald_material:TriangleMaterial = TriangleMaterial.new()
-	emerald_material.color = Color("#298627FF")
+	cube_material.roughness = 0.1
+	cube_material.metallic = 0.0
+	var suzanne_material:TriangleMaterial = TriangleMaterial.new()
+	suzanne_material.color = Color("#298627FF")
+	suzanne_material.roughness = 0.0
+	suzanne_material.metallic = 1.0
 	
 	# Floor mesh
 	
@@ -249,6 +260,7 @@ func _setup_scene() -> void:
 	bvh = build_bvh(tris, 0, 0, 0)
 	flatten_bvh(bvh, flattened_bvh)
 	
+	
 	# print("bvh 0 aabb min: ", flattened_bvh[0].aabb_min)
 	# print("bvh 0 aabb max: ", flattened_bvh[0].aabb_max)
 	
@@ -265,7 +277,11 @@ func _setup_scene() -> void:
 		triangle.material.color.r,
 		triangle.material.color.g,
 		triangle.material.color.b,
-		0.0
+		0.0,
+		# roughness
+		triangle.material.roughness, 0.0, 0.0, 0.0,
+		# metallic
+		triangle.material.metallic, 0.0, 0.0, 0.0
 	])
 	
 	# Converting bvh data to floats
@@ -338,7 +354,11 @@ func _send_suzanne_mesh() -> void:
 	var suzanne_global_transform:Transform3D = suzanne_rb.global_transform
 	var suzanne_mesh:MeshInstance3D = suzanne_rb.get_node("suzanne/Suzanne")
 	var temp_tris:Array = suzanne_mesh.mesh.get_faces()
-	
+	var standard_material:StandardMaterial3D = suzanne_mesh.get_active_material(0)
+	var triangle_material := TriangleMaterial.new()
+	triangle_material.color = standard_material.albedo_color
+	triangle_material.roughness = standard_material.roughness
+	triangle_material.metallic = standard_material.metallic
 	# print("tris: ", temp_tris.size())
 	
 	var tri_i:int = 0
@@ -353,8 +373,7 @@ func _send_suzanne_mesh() -> void:
 		# triangle.v0 = v0
 		# triangle.v1 = v1
 		# triangle.v2 = v2
-		triangle.material = TriangleMaterial.new()
-		triangle.material.color = suzanne_mesh.get_active_material(0).albedo_color
+		triangle.material = triangle_material
 		tris.append(triangle)
 		tri_i += 3
 
@@ -466,9 +485,9 @@ func build_bvh(_tris:Array, _start:int, _count:int, _depth:int) -> BVHNode:
 	var depth_ratio:float = float(_depth) / float(max_depth)
 	# var color:Color = Color(0.2 + _depth * 0.1, 1.0 - _depth * 0.05, 1.0)
 	# var color:Color = Color(depth_ratio, 1.0 - depth_ratio, 1.0)
-	var color:Color = Color(depth_ratio, 1.0 - depth_ratio, 1.0)
+	# var color:Color = Color(depth_ratio, 1.0 - depth_ratio, 1.0)
 	# print("depth ratio: ", depth_ratio)
-	draw_aabb(node.aabb, color)
+	# draw_aabb(node.aabb, color)
 	
 	# 2. Stop condition (make leaf)
 	var leaf_tris:int = 4
@@ -485,13 +504,6 @@ func build_bvh(_tris:Array, _start:int, _count:int, _depth:int) -> BVHNode:
 		# print("aabb: ", node.aabb)
 		for t in _tris:
 			flattened_tris.append(t)
-		
-		# if not leaf_printed:
-		# 	leaf_printed = true
-		# 	print("start: ", node.start)
-		# 	print("count: ", node.count)
-		# 	for tri_i in range(node.start, node.start + node.count):
-		# 		print("triangles in range: ", flattened_tris[tri_i])
 		return node
 	
 	# 3. Choose split axis (longest axis)
